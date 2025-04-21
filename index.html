@@ -87,8 +87,7 @@
                 } else {
                     writeForm.style.display = "none";
                     signInButton.style.display = "block";
-                    signOutButton.style.display = "none";
-                    
+                    signOutButton.style.display = "none"; 
                 }
                 getEntries();
             });
@@ -137,7 +136,7 @@
             async function getEntries() {
                 const entriesContainer = document.getElementById("verse-entry-container");
                 entriesContainer.innerHTML = "";
-                // const user = auth.currentUser;
+                const user = auth.currentUser;
                 // if (!user) {
                 //     console.error("User not logged in");
                 //     return;
@@ -150,7 +149,6 @@
                 const entries = entriesSnapshot.docs.map(doc => doc.data());
                 console.log(entries);
                 entries.forEach((entry, index) => {
-        
                     const entrySection = document.createElement("section");
                     entrySection.classList.add("verse-entry");
                     entrySection.innerHTML = `
