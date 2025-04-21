@@ -156,6 +156,7 @@
                         <h2>${entry.title}</h2>
                         <p>${entry.entry}</p>
                     `;
+                    if(user.uid){
                     if (user.uid === entry.userId) {
                         const deleteButton = document.createElement("button");
                         deleteButton.id = "deleteButton";
@@ -168,7 +169,7 @@
                         editButton.textContent = "수정하기";
                         entrySection.appendChild(editButton);
                         editButton.addEventListener("click", () => editEntry(entriesIds[index]));
-                    }
+                    }};
                     document.getElementById("verse-entry-container").appendChild(entrySection);
                     });
             }   
