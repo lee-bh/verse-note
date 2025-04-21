@@ -79,10 +79,12 @@
                   
             auth.onAuthStateChanged(user => {
                 if (user) {
-                    writeForm.style.display = "block";
-                    signInButton.style.display = "none";
-                    signOutButton.style.display = "block";
-                    
+                    //아래 조건문이랑 주인장uid(파이어베이스에있음)를 넣으면 본인만 쓰는 일기, 블로그가 됩니다.
+                    //if(user.uid === "1234567890"){
+                        writeForm.style.display = "block";
+                        signInButton.style.display = "none";
+                        signOutButton.style.display = "block";                    
+                    //}
                 } else {
                     writeForm.style.display = "none";
                     signInButton.style.display = "block";
@@ -134,7 +136,7 @@
                 const entriesContainer = document.getElementById("verse-entry-container");
                 entriesContainer.innerHTML = "";
                 const user = auth.currentUser;
-                // 로그인 안하면 아예 내용을 안보이게 
+                // 로그인 안하면 아예 내용을 안보이게 하는 조건문(일기같은 비공개모드)
                 // if (!user) {
                 //     console.error("User not logged in");
                 //     return;
