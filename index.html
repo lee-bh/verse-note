@@ -47,7 +47,7 @@
         </main>
         <section id="writeForm">
             <input type="text" id="verseTitle" placeholder="제목">
-            <textarea id="verseText" placeholder="일기를 작성해주세요"></textarea>
+            <textarea id="verseText" placeholder="내용을 작성해주세요"></textarea>
             <button id="saveButton">저장하기</button>
         </section>
         <footer>
@@ -77,7 +77,6 @@
             const signInButton = document.getElementById("signInButton");
             const signOutButton = document.getElementById("signOutButton");
                   
-            // check if user is logged in
             auth.onAuthStateChanged(user => {
                 if (user) {
                     writeForm.style.display = "block";
@@ -92,8 +91,6 @@
                 getEntries();
             });
             
-            
-
             function sIn() {
                 signInWithPopup(auth, provider)
                 .then(result =>{ getEntries();})
@@ -137,6 +134,7 @@
                 const entriesContainer = document.getElementById("verse-entry-container");
                 entriesContainer.innerHTML = "";
                 const user = auth.currentUser;
+                // 로그인 안하면 아예 내용을 안보이게 
                 // if (!user) {
                 //     console.error("User not logged in");
                 //     return;
