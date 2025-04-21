@@ -156,6 +156,7 @@
                         <h2>${entry.title}</h2>
                         <p>${entry.entry}</p>
                     `;
+                    console.log(user.uid);
                     if(user.uid){
                     if (user.uid === entry.userId) {
                         const deleteButton = document.createElement("button");
