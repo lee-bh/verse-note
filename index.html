@@ -1,0 +1,218 @@
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>방명록</title>
+        <meta name="description" content="파이어베이스를 사용한 간단한 방명록 페이지입니다. 순수 클라이언트 자바스크립트로 구현되었습니다.">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Gowun+Batang&display=swap');
+            :root{--color-point: #ddd;}
+            html{font-family: 'Gowun Batang', serif; line-height: 1.7; font-size: 18px;word-break: keep-all;
+            box-sizing: border-box;}
+            body, h1, h2, ul, ol, p{font-weight:normal;margin: 0; padding: 0;}
+            header, main, footer, #writeForm{width: 550px; margin: 0 auto;}
+            header{padding:4rem 0 2rem;}
+            footer{padding-bottom: 50vh;}
+            #verse-entry-container{padding:2rem 0rem;}
+            .verse-entry{padding: 3rem 0;}
+            .verse-entry h2, #verseTitle{font-size: 1.5rem;}
+            .verse-entry p{padding-bottom: 1rem; word-spacing: -0.1rem;}  
+            button, input, textarea{line-height: 1.7; font-size: 1rem; font-family: 'Gowun Batang', serif; 
+            word-break: keep-all; border:none; background:var(--color-point); outline:none;}
+            button:hover{background:black; color:white;}
+            button{padding: 0.1rem 0.5rem;margin-right: 0.5rem;}
+            #writeForm { position: fixed;left: calc(50% - 275px - 1rem); bottom: 0;width: calc(550px + 2rem);}
+            #verseTitle,#verseText {border:none; background:var(--color-point); width: 100%; padding:1rem;}
+            #verseTitle{padding-bottom:0;}
+            #verseText{height:12rem;word-spacing: -0.1rem;padding-top:0}
+            #saveButton{position: absolute; right: 1rem; bottom: 2rem;}
+
+            @media (max-width: 550px) {
+                html{font-size: 17px}
+                header, main, footer{width: calc(100% - 2rem);}
+                #writeForm { width: 100vw;}
+                #writeForm{left: 0px; }
+                #verseTitle,#verseText { padding: 1rem; }
+            }
+            
+        </style>
+    </head>
+    <body>
+        <header>
+            <h1>하루살이</h1>
+            <button id="signInButton">로그인</button>
+            <button id="signOutButton">로그아웃</button>
+        </header>
+        <main id="verse-entry-container">
+        </main>
+        <section id="writeForm">
+            <input type="text" id="verseTitle" placeholder="제목">
+            <textarea id="verseText" placeholder="일기를 작성해주세요"></textarea>
+            <button id="saveButton">저장하기</button>
+        </section>
+        <footer>
+            <p>일기장&copy;2025. 이병학.</p>
+        </footer>
+        <script type="module">
+            // Import the functions you need from the SDKs you need
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+            import { getFirestore, collection, getDocs, addDoc, query, orderBy, deleteDoc, doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+            import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+        
+            const firebaseConfig = {
+              apiKey: "AIzaSyBE8Mt6sAgO30wUXmuaNfFP0YEuLCs3rJE",
+              authDomain: "auth-test-b35cf.firebaseapp.com",
+              projectId: "auth-test-b35cf",
+              storageBucket: "auth-test-b35cf.firebasestorage.app",
+              messagingSenderId: "798896697380",
+              appId: "1:798896697380:web:0a207a3eb11c6be93be8b1"
+            };
+          
+            // Initialize Firebase
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+            const auth = getAuth(app);
+            const provider = new GoogleAuthProvider();
+            const writeForm = document.getElementById("writeForm");
+            const signInButton = document.getElementById("signInButton");
+            const signOutButton = document.getElementById("signOutButton");
+                  
+            // check if user is logged in
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    writeForm.style.display = "block";
+                    signInButton.style.display = "none";
+                    signOutButton.style.display = "block";
+                    getEntries();
+                } else {
+                    writeForm.style.display = "none";
+                    signInButton.style.display = "block";
+                    signOutButton.style.display = "none";
+                }
+            });
+            
+            function sIn() {
+                signInWithPopup(auth, provider)
+                .then(result =>{ getEntries();})
+                .catch(error =>{console.log('error')});
+            }
+
+            function sOut() {
+                signOut(auth).then(()=>{document.getElementById("verse-entry-container").innerHTML = "";})
+                .catch(error =>{console.log('error')});
+            }
+
+            signInButton.addEventListener("click", sIn);
+            signOutButton.addEventListener("click", sOut);
+
+            const saveButton = document.getElementById("saveButton");
+            saveButton.addEventListener("click", saveEntry);
+
+            function saveEntry() {               
+                const title = document.getElementById("verseTitle").value;
+                const entry = document.getElementById("verseText").value;
+                const user = auth.currentUser;
+                if (!user) {
+                    console.error("User not logged in");
+                    return;
+                }
+                const entriesCollection = collection(db, "verse-entries");
+                const newEntry = {
+                    title: title,
+                    entry: entry,
+                    userId: user.uid,
+                    createdAt: new Date()
+                }
+                addDoc(entriesCollection, newEntry).then((docRef) => {
+                    console.log("Document written with ID: ", docRef.id);
+                    getEntries();
+                }).catch((error) => {
+                    console.error("Error adding document: ", error);
+                });
+            }   
+            async function getEntries() {
+                const entriesContainer = document.getElementById("verse-entry-container");
+                entriesContainer.innerHTML = "";
+                const user = auth.currentUser;
+                if (!user) {
+                    console.error("User not logged in");
+                    return;
+                }
+                const entriesCollection = collection(db, "verse-entries");
+                const entriesQuery = query(entriesCollection, orderBy("createdAt", "desc"));
+                const entriesSnapshot = await getDocs(entriesQuery);
+                const entriesIds = entriesSnapshot.docs.map(doc => doc.id);
+                
+                const entries = entriesSnapshot.docs.map(doc => doc.data());
+                console.log(entries);
+                entries.forEach((entry, index) => {
+        
+                    const entrySection = document.createElement("section");
+                    entrySection.classList.add("verse-entry");
+                    entrySection.innerHTML = `
+                        <p>${entry.createdAt.toDate().toLocaleDateString()}</p>    
+                        <h2>${entry.title}</h2>
+                        <p>${entry.entry}</p>
+                    `;
+                    if (user.uid === entry.userId) {
+                        const deleteButton = document.createElement("button");
+                        deleteButton.id = "deleteButton";
+                        deleteButton.textContent = "지우기";
+                        entrySection.appendChild(deleteButton);
+                        deleteButton.addEventListener("click", () => deleteEntry(entriesIds[index]));
+
+                        const editButton = document.createElement("button");
+                        editButton.id = "editButton";
+                        editButton.textContent = "수정하기";
+                        entrySection.appendChild(editButton);
+                        editButton.addEventListener("click", () => editEntry(entriesIds[index]));
+                    }
+                    document.getElementById("verse-entry-container").appendChild(entrySection);
+                    });
+            }   
+ 
+            async function deleteEntry(entryId) {
+                const entriesCollection = collection(db, "verse-entries");
+                const entryDoc = doc(entriesCollection, entryId);
+                deleteDoc(entryDoc);
+                getEntries();
+            }
+
+            async function editEntry(entryId) {
+                const entriesCollection = collection(db, "verse-entries");
+                const entryDoc = doc(entriesCollection, entryId);
+                const entry = await getDoc(entryDoc);
+                const entryData = entry.data();
+                
+                const title = document.getElementById("verseTitle");
+                const entryTextarea = document.getElementById("verseText");
+                
+                title.value = entryData.title;
+                entryTextarea.value = entryData.entry;
+                const saveButton = document.getElementById("saveButton");
+                saveButton.removeEventListener("click", saveEntry);
+                saveButton.addEventListener("click", () => saveEditedEntry(entryId));
+            }
+
+            async function saveEditedEntry(entryId) {
+                const entriesCollection = collection(db, "verse-entries");  
+                const entryDoc = doc(entriesCollection, entryId);
+                const title = document.getElementById("verseTitle").value;
+                const entry = document.getElementById("verseText").value;
+                const user = auth.currentUser;
+                if (!user) {
+                    console.error("User not logged in");
+                    return;
+                }
+                const newEntry = {
+                    title: title,
+                    entry: entry,
+                    userId: user.uid,
+                    createdAt: new Date()
+                }
+                updateDoc(entryDoc, newEntry);
+                getEntries();
+            }
+          </script>
+    </body>
+</html>
