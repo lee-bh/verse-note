@@ -40,7 +40,7 @@
     <body>
         <header>
             <h1>방명록</h1>
-            <button id="signInButton">로그인</button>
+            <button id="signInButton">구글로그인</button>
             <button id="signOutButton">로그아웃</button>
         </header>
         <main id="verse-entry-container">
@@ -172,9 +172,7 @@
                     getEntries();
                     document.getElementById("verseTitle").value = "굿굿";
                     document.getElementById("verseText").value = "성공적으로 저장되었습니다.";
-                }).catch((error) => {
-                    console.error("Error adding document: ", error);
-                });
+                })
             } 
 
             async function deleteEntry(entryId) {
@@ -188,11 +186,9 @@
                 const entriesCollection = collection(db, "verse-entries");
                 const entryDoc = doc(entriesCollection, entryId);
                 const entry = await getDoc(entryDoc);
-                const entryData = entry.data();
-                
+                const entryData = entry.data();        
                 const title = document.getElementById("verseTitle");
-                const entryTextarea = document.getElementById("verseText");
-                
+                const entryTextarea = document.getElementById("verseText");     
                 title.value = entryData.title;
                 entryTextarea.value = entryData.entry;
                 const saveButton = document.getElementById("saveButton");
