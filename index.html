@@ -30,9 +30,7 @@
             @media (max-width: 550px) {
                 html{font-size: 17px}
                 header, main, footer{width: calc(100% - 2rem);}
-                #writeForm { width: 100vw;}
-                #writeForm{left: 0px; }
-                #verseTitle,#verseText { padding: 1rem; }
+                #writeForm {left: 0px; width: 100vw;}
             }
             
         </style>
@@ -170,8 +168,8 @@
                 addDoc(entriesCollection, newEntry).then((docRef) => {
                     console.log("Document written with ID: ", docRef.id);
                     getEntries();
-                    document.getElementById("verseTitle").value = "굿굿";
-                    document.getElementById("verseText").value = "성공적으로 저장되었습니다.";
+                    document.getElementById("verseTitle").value = "";
+                    document.getElementById("verseText").value = "";
                 })
             } 
 
@@ -209,8 +207,8 @@
                     createdAt: new Date()
                 }
                 updateDoc(entryDoc, newEntry).then(()=>{
-                    document.getElementById("verseTitle").value = "굿굿";
-                    document.getElementById("verseText").value = "성공적으로 수정되었습니다.";
+                    document.getElementById("verseTitle").value = "";
+                    document.getElementById("verseText").value = "";
                     getEntries();
                 });
             }
