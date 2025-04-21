@@ -108,32 +108,8 @@
             signOutButton.addEventListener("click", sOut);
 
             const saveButton = document.getElementById("saveButton");
-            saveButton.addEventListener("click", saveEntry);
+            saveButton.addEventListener("click", saveEntry);  
 
-            function saveEntry() {               
-                const vTitle = document.getElementById("verseTitle").value;
-                const vText = document.getElementById("verseText").value;
-                const user = auth.currentUser;
-                if (!user) {
-                    console.error("User not logged in");
-                    return;
-                }
-                const entriesCollection = collection(db, "verse-entries");
-                const newEntry = {
-                    title: vTitle,
-                    entry: vText,
-                    userId: user.uid,
-                    createdAt: new Date()
-                }
-                addDoc(entriesCollection, newEntry).then((docRef) => {
-                    console.log("Document written with ID: ", docRef.id);
-                    getEntries();
-                    vTitle.value = "굿굿";
-                    vText.value = "성공적으로 저장되었습니다.";
-                }).catch((error) => {
-                    console.error("Error adding document: ", error);
-                });
-            }   
             async function getEntries() {
                 const entriesContainer = document.getElementById("verse-entry-container");
                 entriesContainer.innerHTML = "";
@@ -176,6 +152,31 @@
                     });
             }   
  
+            function saveEntry() {               
+                const vTitle = document.getElementById("verseTitle").value;
+                const vText = document.getElementById("verseText").value;
+                const user = auth.currentUser;
+                if (!user) {
+                    console.error("User not logged in");
+                    return;
+                }
+                const entriesCollection = collection(db, "verse-entries");
+                const newEntry = {
+                    title: vTitle,
+                    entry: vText,
+                    userId: user.uid,
+                    createdAt: new Date()
+                }
+                addDoc(entriesCollection, newEntry).then((docRef) => {
+                    console.log("Document written with ID: ", docRef.id);
+                    getEntries();
+                    document.getElementById("verseTitle").value = "굿굿";
+                    document.getElementById("verseText").value = "성공적으로 저장되었습니다.";
+                }).catch((error) => {
+                    console.error("Error adding document: ", error);
+                });
+            } 
+
             async function deleteEntry(entryId) {
                 const entriesCollection = collection(db, "verse-entries");
                 const entryDoc = doc(entriesCollection, entryId);
@@ -205,20 +206,17 @@
                 const vTitle = document.getElementById("verseTitle").value;
                 const vText = document.getElementById("verseText").value;
                 const user = auth.currentUser;
-                if (!user) {
-                    console.error("User not logged in");
-                    return;
-                }
                 const newEntry = {
                     title: vTitle,
                     entry: vText,
                     userId: user.uid,
                     createdAt: new Date()
                 }
-                updateDoc(entryDoc, newEntry);
-                vTitle.value = "굿굿";
-                vText.value = "성공적으로 저장되었습니다.";
-                getEntries();
+                updateDoc(entryDoc, newEntry).then(()=>{
+                    document.getElementById("verseTitle").value = "굿굿";
+                    document.getElementById("verseText").value = "성공적으로 저장되었습니다.";
+                    getEntries();
+                });
             }
           </script>
     </body>
