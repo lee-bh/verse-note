@@ -83,14 +83,17 @@
                     writeForm.style.display = "block";
                     signInButton.style.display = "none";
                     signOutButton.style.display = "block";
-                    getEntries();
+                    
                 } else {
                     writeForm.style.display = "none";
                     signInButton.style.display = "block";
                     signOutButton.style.display = "none";
+                    
                 }
             });
             
+            getEntries();
+
             function sIn() {
                 signInWithPopup(auth, provider)
                 .then(result =>{ getEntries();})
@@ -133,11 +136,11 @@
             async function getEntries() {
                 const entriesContainer = document.getElementById("verse-entry-container");
                 entriesContainer.innerHTML = "";
-                const user = auth.currentUser;
-                if (!user) {
-                    console.error("User not logged in");
-                    return;
-                }
+                // const user = auth.currentUser;
+                // if (!user) {
+                //     console.error("User not logged in");
+                //     return;
+                // }
                 const entriesCollection = collection(db, "verse-entries");
                 const entriesQuery = query(entriesCollection, orderBy("createdAt", "desc"));
                 const entriesSnapshot = await getDocs(entriesQuery);
