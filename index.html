@@ -5,6 +5,7 @@
         <title>난데없는 말들</title>
         <meta name="description" content="파이어베이스를 사용한 간단한 방명록 페이지입니다. 순수 클라이언트 자바스크립트로 구현되었습니다.">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="alternate" type="application/rss+xml" title="난데없는 말들" href="rss.xml">
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Gowun+Batang&display=swap');
             :root{--color-point: #ddd;}
@@ -62,7 +63,7 @@
             </div>
         </section>
         <footer>
-            <p>verse note&copy;2025. 이병학.</p>
+            <p>verse note&copy;2025. 이병학. <a href="rss/">RSS</a></p>
         </footer>
         <script type="module">
             // Import the functions you need from the SDKs you need
@@ -195,6 +196,8 @@
                     entrySection.classList.add("verse-entry");
                     // 인덱스 대신 문서 id를 직접 들고 있어야 목록이 바뀌어도 엉뚱한 글을 건드리지 않는다
                     entrySection.dataset.id = entryDoc.id;
+                    // RSS 항목이 #문서id로 걸려 있으므로 그 자리로 내려가도록 주소를 달아둔다
+                    entrySection.id = entryDoc.id;
 
                     const dateParagraph = document.createElement("p");
                     dateParagraph.textContent = formatDate(entry.createdAt);
@@ -225,7 +228,19 @@
                     entriesContainer.appendChild(entrySection);
                 });
                 markEditingEntry();
+                scrollToLinkedEntry();
             }   
+
+            // 글은 목록을 다 읽은 뒤에야 생기므로, 주소에 #문서id가 붙어 들어와도
+            // 브라우저는 그 자리를 찾지 못한다. 다 그린 뒤에 한 번만 직접 옮겨준다.
+            let scrolledToHash = false;
+            function scrollToLinkedEntry() {
+                if (scrolledToHash || !location.hash) return;
+                const target = entriesContainer.querySelector(`.verse-entry[data-id="${CSS.escape(location.hash.slice(1))}"]`);
+                if (!target) return;
+                scrolledToHash = true;
+                target.scrollIntoView();
+            }
 
             function formatDate(createdAt) {
                 if (createdAt && typeof createdAt.toDate === "function") {
