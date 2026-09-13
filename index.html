@@ -1,4 +1,5 @@
-<html>
+<!DOCTYPE html>
+<html lang="ko">
     <head>
         <meta charset="UTF-8">
         <title>난데없는 말들</title>
@@ -16,7 +17,9 @@
             #verse-entry-container{padding:2rem 0rem;}
             .verse-entry{padding: 2rem 0;}
             .verse-entry h2, #verseTitle{font-size: 1.5rem;}
-            .verse-entry p{padding-bottom: 1rem; word-spacing: -0.1rem;}  
+            .verse-entry p{padding-bottom: 1rem; word-spacing: -0.1rem;}
+            .verse-entry .verse-body{white-space: pre-wrap;}
+            .verse-entry.is-editing h2::after{content:" (수정 중)"; font-size: 0.8rem;}
             button, input, textarea{color:black; line-height: 1.7; font-size: 1rem; font-family: 'Gowun Batang', serif; 
             word-break: keep-all; border:none; background:var(--color-point); outline:none;}
             button:hover{background:black; color:white;}
@@ -25,7 +28,8 @@
             #verseTitle,#verseText {border:none; background:var(--color-point); width: 100%; padding:1rem;}
             #verseTitle{padding-bottom:0;}
             #verseText{height:12rem;word-spacing: -0.1rem;padding-top:0}
-            #saveButton{position: absolute; right: 1rem; bottom: 1rem;}
+            #formButtons{position: absolute; right: 1rem; bottom: 1rem;}
+            #saveButton{margin-right: 0;}
 
             @media (max-width: 550px) {
                 :root{--color-point: #222;}
@@ -52,7 +56,10 @@
         <section id="writeForm">
             <input type="text" id="verseTitle" placeholder="제목을 넣고">
             <textarea id="verseText" placeholder="글을 작성해보세요"></textarea>
-            <button id="saveButton">저장하기</button>
+            <div id="formButtons">
+                <button id="cancelButton" hidden>취소</button>
+                <button id="saveButton">저장하기</button>
+            </div>
         </section>
         <footer>
             <p>verse note&copy;2025. 이병학.</p>
@@ -60,7 +67,7 @@
         <script type="module">
             // Import the functions you need from the SDKs you need
             import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-            import { getFirestore, collection, getDocs, addDoc, query, orderBy, deleteDoc, doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+            import { getFirestore, collection, getDocs, addDoc, query, orderBy, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
             import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
         
             const firebaseConfig = {
@@ -80,7 +87,19 @@
             const writeForm = document.getElementById("writeForm");
             const signInButton = document.getElementById("signInButton");
             const signOutButton = document.getElementById("signOutButton");
-                  
+            const saveButton = document.getElementById("saveButton");
+            const cancelButton = document.getElementById("cancelButton");
+            const titleInput = document.getElementById("verseTitle");
+            const textInput = document.getElementById("verseText");
+            const entriesContainer = document.getElementById("verse-entry-container");
+
+            // 지금 수정중인 글의 id. null이면 새 글쓰기 모드.
+            // 저장 버튼에 글마다 리스너를 새로 달면 리스너가 쌓여서
+            // 저장 한 번에 여러 글이 같이 수정된다. 그래서 상태값 하나로만 관리한다.
+            let editingId = null;
+            // getEntries가 여러 번 겹쳐 불릴 때 늦게 온 예전 응답이 화면을 덮어쓰지 않도록 하는 번호표
+            let renderToken = 0;
+
             auth.onAuthStateChanged(user => {
                 if (user) {
                     //아래 조건문이랑 주인장uid(파이어베이스에있음)를 넣으면 본인만 쓰는 일기, 블로그가 됩니다.
@@ -94,129 +113,202 @@
                     signInButton.style.display = "block";
                     signOutButton.style.display = "none"; 
                 }
+                // 로그인 상태가 바뀌면 수정중이던 내용은 버린다
+                exitEditMode();
                 getEntries();
             });
             
             function sIn() {
                 signInWithPopup(auth, provider)
-                .then(result =>{ getEntries();})
                 .catch(error =>{console.log('error')});
             }
 
             function sOut() {
-                signOut(auth).then(()=>{document.getElementById("verse-entry-container").innerHTML = "";})
+                signOut(auth)
                 .catch(error =>{console.log('error')});
             }
 
             signInButton.addEventListener("click", sIn);
             signOutButton.addEventListener("click", sOut);
 
-            const saveButton = document.getElementById("saveButton");
-            saveButton.addEventListener("click", saveEntry);  
+            // 저장 버튼 리스너는 딱 하나만 등록하고, 안에서 모드를 판단한다
+            saveButton.addEventListener("click", onSave);
+            cancelButton.addEventListener("click", () => {
+                exitEditMode();
+                markEditingEntry();
+            });
+
+            // 글 목록은 매번 다시 그리므로 버튼마다 리스너를 다는 대신
+            // 컨테이너에서 한 번만 받아서 처리한다
+            entriesContainer.addEventListener("click", event => {
+                const button = event.target.closest("button");
+                if (!button) return;
+                const entrySection = button.closest(".verse-entry");
+                if (!entrySection) return;
+                const entryId = entrySection.dataset.id;
+                if (button.classList.contains("delete-button")) {
+                    deleteEntry(entryId);
+                } else if (button.classList.contains("edit-button")) {
+                    editEntry(entryId);
+                }
+            });
+
+            function enterEditMode(entryId) {
+                editingId = entryId;
+                saveButton.textContent = "수정하기";
+                cancelButton.hidden = false;
+            }
+
+            function exitEditMode() {
+                editingId = null;
+                titleInput.value = "";
+                textInput.value = "";
+                saveButton.textContent = "저장하기";
+                cancelButton.hidden = true;
+            }
+
+            // 어느 글을 수정중인지 목록에 표시
+            function markEditingEntry() {
+                entriesContainer.querySelectorAll(".verse-entry").forEach(section => {
+                    section.classList.toggle("is-editing", section.dataset.id === editingId);
+                });
+            }
 
             async function getEntries() {
-                const entriesContainer = document.getElementById("verse-entry-container");
-                entriesContainer.innerHTML = "";
+                const token = ++renderToken;
                 const user = auth.currentUser;
                 // 로그인 안하면 아예 내용을 안보이게 하는 조건문(일기같은 비공개모드)
                 // if (!user) {
-                //     console.error("User not logged in");
+                //     entriesContainer.innerHTML = "";
                 //     return;
                 // }
                 const entriesCollection = collection(db, "verse-entries");
                 const entriesQuery = query(entriesCollection, orderBy("createdAt", "desc"));
                 const entriesSnapshot = await getDocs(entriesQuery);
-                const entriesIds = entriesSnapshot.docs.map(doc => doc.id);
-                
-                const entries = entriesSnapshot.docs.map(doc => doc.data());
-                console.log(entries);
-                entries.forEach((entry, index) => {
+                // 나중에 시작된 요청이 이미 있으면 이 결과는 버린다
+                if (token !== renderToken) return;
+
+                entriesContainer.innerHTML = "";
+                entriesSnapshot.docs.forEach(entryDoc => {
+                    const entry = entryDoc.data();
                     const entrySection = document.createElement("section");
                     entrySection.classList.add("verse-entry");
-                    entrySection.innerHTML = `
-                        <p>${entry.createdAt.toDate().toLocaleDateString()}</p>    
-                        <h2>${entry.title}</h2>
-                        <p>${entry.entry}</p>
-                    `;
-                    if(user != null){
-                    if (user.uid === entry.userId) {
+                    // 인덱스 대신 문서 id를 직접 들고 있어야 목록이 바뀌어도 엉뚱한 글을 건드리지 않는다
+                    entrySection.dataset.id = entryDoc.id;
+
+                    const dateParagraph = document.createElement("p");
+                    dateParagraph.textContent = formatDate(entry.createdAt);
+                    entrySection.appendChild(dateParagraph);
+
+                    const titleHeading = document.createElement("h2");
+                    // textContent로 넣어야 글에 들어간 <, > 같은 글자가 태그로 해석되지 않는다
+                    titleHeading.textContent = entry.title ?? "";
+                    entrySection.appendChild(titleHeading);
+
+                    const bodyParagraph = document.createElement("p");
+                    bodyParagraph.classList.add("verse-body");
+                    bodyParagraph.textContent = entry.entry ?? "";
+                    entrySection.appendChild(bodyParagraph);
+
+                    if (user != null && user.uid === entry.userId) {
+                        // id는 문서마다 겹치면 안되므로 class로 구분한다
                         const deleteButton = document.createElement("button");
-                        deleteButton.id = "deleteButton";
+                        deleteButton.classList.add("delete-button");
                         deleteButton.textContent = "지우기";
                         entrySection.appendChild(deleteButton);
-                        deleteButton.addEventListener("click", () => deleteEntry(entriesIds[index]));
 
                         const editButton = document.createElement("button");
-                        editButton.id = "editButton";
+                        editButton.classList.add("edit-button");
                         editButton.textContent = "수정하기";
                         entrySection.appendChild(editButton);
-                        editButton.addEventListener("click", () => editEntry(entriesIds[index]));
-                    }};
-                    document.getElementById("verse-entry-container").appendChild(entrySection);
-                    });
+                    }
+                    entriesContainer.appendChild(entrySection);
+                });
+                markEditingEntry();
             }   
- 
-            function saveEntry() {               
-                const vTitle = document.getElementById("verseTitle").value;
-                const vText = document.getElementById("verseText").value;
+
+            function formatDate(createdAt) {
+                if (createdAt && typeof createdAt.toDate === "function") {
+                    return createdAt.toDate().toLocaleDateString();
+                }
+                return "";
+            }
+
+            async function onSave() {
+                const vTitle = titleInput.value.trim();
+                const vText = textInput.value.trim();
                 const user = auth.currentUser;
                 if (!user) {
                     console.error("User not logged in");
                     return;
                 }
+                if (!vTitle && !vText) {
+                    return;
+                }
+                // 저장하는 동안 버튼을 잠가서 같은 글이 두 번 올라가는 것을 막는다
+                saveButton.disabled = true;
+                try {
+                    if (editingId) {
+                        await saveEditedEntry(editingId, vTitle, vText);
+                    } else {
+                        await saveEntry(vTitle, vText, user.uid);
+                    }
+                    exitEditMode();
+                    await getEntries();
+                } catch (error) {
+                    console.log('error', error);
+                } finally {
+                    saveButton.disabled = false;
+                }
+            }
+
+            function saveEntry(vTitle, vText, userId) {
                 const entriesCollection = collection(db, "verse-entries");
                 const newEntry = {
                     title: vTitle,
                     entry: vText,
-                    userId: user.uid,
+                    userId: userId,
                     createdAt: new Date()
                 }
-                addDoc(entriesCollection, newEntry).then((docRef) => {
-                    console.log("Document written with ID: ", docRef.id);
-                    getEntries();
-                    document.getElementById("verseTitle").value = "";
-                    document.getElementById("verseText").value = "";
-                })
+                return addDoc(entriesCollection, newEntry);
             } 
 
-            async function deleteEntry(entryId) {
-                const entriesCollection = collection(db, "verse-entries");
-                const entryDoc = doc(entriesCollection, entryId);
-                deleteDoc(entryDoc);
-                getEntries();
+            function saveEditedEntry(entryId, vTitle, vText) {
+                const entryDoc = doc(db, "verse-entries", entryId);
+                // createdAt과 userId는 그대로 둔다. 다시 쓰면 작성일이 바뀌어 글 순서가 뒤집힌다.
+                return updateDoc(entryDoc, {
+                    title: vTitle,
+                    entry: vText,
+                    updatedAt: new Date()
+                });
             }
 
             async function editEntry(entryId) {
-                const entriesCollection = collection(db, "verse-entries");
-                const entryDoc = doc(entriesCollection, entryId);
-                const entry = await getDoc(entryDoc);
-                const entryData = entry.data();        
-                const title = document.getElementById("verseTitle");
-                const entryTextarea = document.getElementById("verseText");     
-                title.value = entryData.title;
-                entryTextarea.value = entryData.entry;
-                const saveButton = document.getElementById("saveButton");
-                saveButton.removeEventListener("click", saveEntry);
-                saveButton.addEventListener("click", () => saveEditedEntry(entryId));
+                // 이미 화면에 그려둔 내용을 쓰면 되므로 다시 읽어올 필요가 없다
+                const entrySection = entriesContainer.querySelector(`.verse-entry[data-id="${entryId}"]`);
+                if (!entrySection) return;
+                titleInput.value = entrySection.querySelector("h2").textContent;
+                textInput.value = entrySection.querySelector(".verse-body").textContent;
+                enterEditMode(entryId);
+                markEditingEntry();
+                titleInput.focus();
             }
 
-            async function saveEditedEntry(entryId) {
-                const entriesCollection = collection(db, "verse-entries");  
-                const entryDoc = doc(entriesCollection, entryId);
-                const vTitle = document.getElementById("verseTitle").value;
-                const vText = document.getElementById("verseText").value;
-                const user = auth.currentUser;
-                const newEntry = {
-                    title: vTitle,
-                    entry: vText,
-                    userId: user.uid,
-                    createdAt: new Date()
+            async function deleteEntry(entryId) {
+                if (!window.confirm("이 글을 지울까요?")) return;
+                const entryDoc = doc(db, "verse-entries", entryId);
+                try {
+                    // 지워지는 것을 기다린 뒤에 목록을 다시 읽어야 지운 글이 남아있지 않다
+                    await deleteDoc(entryDoc);
+                } catch (error) {
+                    console.log('error', error);
+                    return;
                 }
-                updateDoc(entryDoc, newEntry).then(()=>{
-                    document.getElementById("verseTitle").value = "";
-                    document.getElementById("verseText").value = "";
-                    getEntries();
-                });
+                // 수정중이던 글이 지워졌으면 입력창도 비운다
+                if (editingId === entryId) {
+                    exitEditMode();
+                }
+                await getEntries();
             }
           </script>
     </body>

@@ -1,0 +1,68 @@
+rules_version = '2';
+
+// 난데없는 말들 - Firestore 보안 규칙
+//
+// 화면에서 수정/삭제 버튼을 숨기는 것만으로는 아무것도 막지 못한다.
+// 브라우저 콘솔에서 SDK를 직접 부르면 남의 글도 건드릴 수 있기 때문에,
+// 실제 권한 검사는 반드시 여기에 있어야 한다.
+//
+// 배포: firebase deploy --only firestore:rules
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    // 글에 들어올 수 있는 값의 모양을 정해둔다.
+    // 이걸 안 하면 아무 필드나 원하는 만큼 밀어넣을 수 있다.
+    function validEntry(data) {
+      return data.title is string
+          && data.entry is string
+          && data.userId is string
+          && data.title.size() <= 200
+          && data.entry.size() <= 20000
+          && (data.title.size() > 0 || data.entry.size() > 0);
+    }
+
+    match /verse-entries/{entryId} {
+
+      // 방명록이라 글은 누구나 읽는다.
+      // 일기처럼 혼자 쓰려면 아래 줄로 바꾼다.
+      //   allow read: if isOwner(resource.data.userId);
+      // 주인장 한 명만 쓰는 블로그로 만들려면 uid를 직접 박아도 된다.
+      //   allow read: if request.auth.uid == "주인장uid";
+      allow read: if true;
+
+      // 새 글은 로그인한 본인 이름으로만 쓸 수 있다.
+      // userId를 남의 uid로 적어서 올리는 것도 여기서 막힌다.
+      allow create: if signedIn()
+                    && request.resource.data.keys().hasOnly(['title', 'entry', 'userId', 'createdAt'])
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.createdAt is timestamp
+                    && validEntry(request.resource.data);
+
+      // 수정은 글쓴이만. 주인과 작성일은 바꿀 수 없다.
+      // update에서 request.resource.data는 기존 문서에 변경분을 덮은 결과라
+      // 클라이언트가 title/entry/updatedAt만 보내도 아래 비교가 성립한다.
+      allow update: if isOwner(resource.data.userId)
+                    && request.resource.data.keys().hasOnly(['title', 'entry', 'userId', 'createdAt', 'updatedAt'])
+                    && request.resource.data.userId == resource.data.userId
+                    && request.resource.data.createdAt == resource.data.createdAt
+                    && validEntry(request.resource.data);
+
+      // 삭제도 글쓴이만.
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // 정의하지 않은 경로는 전부 막는다.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
